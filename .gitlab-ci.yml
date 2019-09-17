@@ -4,4 +4,4 @@ include:
     file: '/main.yml'
 
 build:docker:
-  extends: .build_docker
+  extends: .build_podman
