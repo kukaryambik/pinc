@@ -36,11 +36,7 @@ VOLUME ["/var/lib/containers/storage","/var/run/containers/storage"]
 RUN  apk add --no-cache \
 	runc \
 	gpgme \
-	ostree \
-        git \
-        openssh-client \
-        curl \
-        jq
+	ostree
 
 COPY --from=build /usr/libexec/podman /usr/libexec/podman
 COPY --from=build /usr/bin/*pod* /usr/bin/
