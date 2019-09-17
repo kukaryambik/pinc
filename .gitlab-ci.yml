@@ -1,6 +1,6 @@
 include:
   - project: 'iac/ci'
-    ref: '2.11'
+    ref: '3.0a'
     file: '/main.yml'
 
 build:docker:
