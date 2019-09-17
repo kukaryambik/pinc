@@ -3,5 +3,5 @@ include:
     ref: '3.0a'
     file: '/main.yml'
 
-build:docker:
+build:container:
   extends: .build_podman
