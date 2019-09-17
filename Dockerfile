@@ -47,7 +47,11 @@ RUN apk add --no-cache \
       runc \
       gpgme \
       ostree \
-    && mkdir -p /etc/cni/net.d \
+      git \
+      openssh-client \
+      curl \
+      jq \
+    && mkdir -p /etc/cni/net.d /etc/containers \
     && wget https://raw.githubusercontent.com/containers/libpod/master/cni/87-podman-bridge.conflist -O /etc/cni/net.d/87-podman-bridge.conflist \
     && wget https://raw.githubusercontent.com/projectatomic/registries/master/registries.conf -O /etc/containers/registries.conf \
     && wget https://raw.githubusercontent.com/containers/skopeo/master/default-policy.json -O /etc/containers/policy.json
