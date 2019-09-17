@@ -1,0 +1,7 @@
+include:
+  - project: 'iac/ci'
+    ref: '2.11'
+    file: '/main.yml'
+
+build:docker:
+  extends: .build_docker
