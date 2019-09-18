@@ -1,7 +1,7 @@
 include:
   - project: "iac/ci"
-    ref: "3.0a"
+    ref: "3.0"
     file: "/main.yml"
 
-build:container:
-  extends: .build_podman
+build:image:
+  extends: .build_image
