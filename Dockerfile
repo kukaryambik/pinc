@@ -1,4 +1,16 @@
-FROM alpine:3.10 as builder
+FROM alpine:3.10 as base
+
+FROM base as builder
+
+ARG CONMON_REF
+ARG RUNC_REF
+ARG CNI_PLUGINS_REF
+ARG PODMAN_REF
+
+ENV CONMON_REF=master \
+    RUNC_REF=master \
+    CNI_PLUGINS_REF=master \
+    PODMAN_REF=master
 
 RUN apk add --no-cache \
       git \
@@ -24,35 +36,53 @@ RUN apk add --no-cache \
       protobuf-dev \
     ;
 
-ENV GOPATH="/go" \
-    PATH="$GOPATH/bin:$PATH"
-
-RUN git clone https://github.com/containers/conmon $GOPATH/src/github.com/containers/conmon \
-    && cd $GOPATH/src/github.com/containers/conmon \
-    && make
-
-RUN git clone https://github.com/opencontainers/runc $GOPATH/src/github.com/opencontainers/runc \
+# Install runc
+RUN set -x \
+    && export GOPATH="$(mktemp -d)" \
+    && git clone https://github.com/opencontainers/runc $GOPATH/src/github.com/opencontainers/runc \
     && cd $GOPATH/src/github.com/opencontainers/runc \
-    && EXTRA_LDFLAGS="-s -w" make BUILDTAGS="seccomp apparmor selinux ambient"
+    && git checkout -q "$RUNC_REF" \
+    && EXTRA_LDFLAGS="-s -w" make BUILDTAGS="seccomp apparmor selinux ambient" \
+    && mkdir -p /podman/bin \
+    && cp runc /podman/bin/runc \
+    && rm -rf "$GOPATH"
 
-RUN git clone https://github.com/containernetworking/plugins.git $GOPATH/src/github.com/containernetworking/plugins \
+# Install conmon
+RUN set -x \
+    && export GOPATH="$(mktemp -d)" \
+    && git clone https://github.com/containers/conmon $GOPATH/src/github.com/containers/conmon \
+    && cd $GOPATH/src/github.com/containers/conmon \
+    && git checkout -q "$CONMON_REF" \
+    && make \
+    && mkdir -p /podman/libexec/podman \
+    && install -D -m 755 bin/conmon /podman/libexec/podman/conmon \
+    && rm -rf "$GOPATH"
+
+# Install CNI plugins
+RUN set -x \
+    && export GOPATH="$(mktemp -d)" GOCACHE="$(mktemp -d)" \
+    && git clone https://github.com/containernetworking/plugins.git $GOPATH/src/github.com/containernetworking/plugins \
     && cd $GOPATH/src/github.com/containernetworking/plugins \
-    && GOFLAGS="-ldflags=-s -ldflags=-w" ./build_linux.sh
+    && git checkout -q "$CNI_PLUGINS_REF" \
+    && ./build_linux.sh \
+    && mkdir -p /podman/libexec/cni \
+    && cp bin/* /podman/libexec/cni \
+    && rm -rf "$GOPATH"
 
-RUN git clone https://github.com/containers/libpod/ $GOPATH/src/github.com/containers/libpod \
+# Install podman
+RUN set -x \
+    && export GOPATH="$(mktemp -d)" \
+    && git clone https://github.com/containers/libpod/ $GOPATH/src/github.com/containers/libpod \
     && cd $GOPATH/src/github.com/containers/libpod \
-    && LDFLAGS="-s -w" make varlink_generate install.bin BUILDTAGS="selinux seccomp apparmor"
+    && git checkout -q "$PODMAN_REF" \
+    && make install.bin BUILDTAGS="selinux seccomp apparmor" PREFIX=/podman \
+    && rm -rf "$GOPATH"
 
-FROM alpine:3.10
+FROM base
 
-EXPOSE 2345
-VOLUME /var/lib/containers
+COPY --from=builder /podman /usr
 
-COPY --from=builder /go/src/github.com/containers/conmon/bin/ /usr/bin/
-COPY --from=builder /go/src/github.com/opencontainers/runc/runc /usr/bin/
-COPY --from=builder /go/src/github.com/containernetworking/plugins/bin/ /usr/lib/cni/
-COPY --from=builder /go/src/github.com/containers/libpod/bin/ /usr/bin/
-
+    # Dependencies
 RUN apk add --no-cache \
       ip6tables \
       gpgme \
@@ -62,11 +92,14 @@ RUN apk add --no-cache \
       openssh-client \
       curl \
       jq \
+    # Configs
     && mkdir -p /etc/cni/net.d /etc/containers \
     && wget https://raw.githubusercontent.com/containers/libpod/master/cni/87-podman-bridge.conflist -O /etc/cni/net.d/87-podman-bridge.conflist \
     && wget https://raw.githubusercontent.com/projectatomic/registries/master/registries.conf -O /etc/containers/registries.conf \
-    && wget https://raw.githubusercontent.com/containers/skopeo/master/default-policy.json -O /etc/containers/policy.json
+    && wget https://raw.githubusercontent.com/containers/skopeo/master/default-policy.json -O /etc/containers/policy.json \
+    && printf '%b' 'cgroup_manager = "cgroupfs"\n' > /etc/containers/libpod.conf
 
-COPY ./conf /etc/containers
+ENTRYPOINT ["podman"]
+CMD ["info"]
 
-CMD ["podman","varlink","--timeout","0","tcp:127.0.0.1:2345"]
+VOLUME /var/lib/containers
