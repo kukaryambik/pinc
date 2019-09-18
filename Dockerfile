@@ -97,7 +97,8 @@ RUN apk add --no-cache \
     && wget https://raw.githubusercontent.com/containers/libpod/master/cni/87-podman-bridge.conflist -O /etc/cni/net.d/87-podman-bridge.conflist \
     && wget https://raw.githubusercontent.com/projectatomic/registries/master/registries.conf -O /etc/containers/registries.conf \
     && wget https://raw.githubusercontent.com/containers/skopeo/master/default-policy.json -O /etc/containers/policy.json \
-    && printf '%b' 'cgroup_manager = "cgroupfs"\n' > /etc/containers/libpod.conf
+    && wget https://raw.githubusercontent.com/containers/libpod/master/libpod.conf -O /etc/containers/libpod.conf \
+    && sed -i -e 's/^\(cgroup_manager = \).*/\1"cgroupfs"/' /etc/containers/libpod.conf
 
 ENTRYPOINT ["podman"]
 CMD ["info"]
