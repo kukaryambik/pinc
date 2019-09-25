@@ -1,18 +1,17 @@
-FROM alpine:3.10 as base
-
-FROM base as builder
+FROM alpine:3.10
 
 ARG CONMON_REF
 ARG RUNC_REF
 ARG CNI_PLUGINS_REF
 ARG PODMAN_REF
 
-ENV CONMON_REF=master \
-    RUNC_REF=master \
-    CNI_PLUGINS_REF=master \
-    PODMAN_REF=master
+ENV CONMON_REF=${CONMON_REF:-master} \
+    RUNC_REF=${RUNC_REF:-master} \
+    CNI_PLUGINS_REF=${CNI_PLUGINS_REF:-master} \
+    PODMAN_REF=${PODMAN_REF:-master}
 
-RUN apk add --no-cache \
+RUN set -ex \
+    && apk add --no-cache --virtual build-deps \
       git \
       go \
       make \
@@ -34,53 +33,47 @@ RUN apk add --no-cache \
       openssl \
       protobuf-c-dev \
       protobuf-dev \
-    ;
-
-# Install runc
-RUN set -x \
+    \
+    # Install runc
     && export GOPATH="$(mktemp -d)" \
     && git clone https://github.com/opencontainers/runc $GOPATH/src/github.com/opencontainers/runc \
     && cd $GOPATH/src/github.com/opencontainers/runc \
     && git checkout -q "$RUNC_REF" \
     && EXTRA_LDFLAGS="-s -w" make BUILDTAGS="seccomp apparmor selinux ambient" \
-    && mkdir -p /podman/bin \
-    && cp runc /podman/bin/runc \
-    && rm -rf "$GOPATH"
-
-# Install conmon
-RUN set -x \
+    && cp runc /usr/bin/runc \
+    && rm -rf "$GOPATH" \
+    \
+    # Install conmon
     && export GOPATH="$(mktemp -d)" \
     && git clone https://github.com/containers/conmon $GOPATH/src/github.com/containers/conmon \
     && cd $GOPATH/src/github.com/containers/conmon \
     && git checkout -q "$CONMON_REF" \
     && make \
-    && mkdir -p /podman/libexec/podman \
-    && install -D -m 755 bin/conmon /podman/libexec/podman/conmon \
-    && rm -rf "$GOPATH"
-
-# Install CNI plugins
-RUN set -x \
+    && mkdir -p /usr/libexec/podman \
+    && install -D -m 755 bin/conmon /usr/libexec/podman/conmon \
+    && rm -rf "$GOPATH" \
+    \
+    # Install CNI plugins
     && export GOPATH="$(mktemp -d)" GOCACHE="$(mktemp -d)" \
     && git clone https://github.com/containernetworking/plugins.git $GOPATH/src/github.com/containernetworking/plugins \
     && cd $GOPATH/src/github.com/containernetworking/plugins \
     && git checkout -q "$CNI_PLUGINS_REF" \
     && ./build_linux.sh \
-    && mkdir -p /podman/libexec/cni \
-    && cp bin/* /podman/libexec/cni \
-    && rm -rf "$GOPATH"
-
-# Install podman
-RUN set -x \
+    && mkdir -p /usr/libexec/cni \
+    && cp bin/* /usr/libexec/cni/ \
+    && rm -rf "$GOPATH" \
+    \
+    # Install podman
     && export GOPATH="$(mktemp -d)" \
     && git clone https://github.com/containers/libpod/ $GOPATH/src/github.com/containers/libpod \
     && cd $GOPATH/src/github.com/containers/libpod \
     && git checkout -q "$PODMAN_REF" \
-    && make install.bin BUILDTAGS="selinux seccomp apparmor" PREFIX=/podman \
-    && rm -rf "$GOPATH"
-
-FROM base
-
-COPY --from=builder /podman /usr
+    && make install.bin BUILDTAGS="selinux seccomp apparmor" PREFIX=/usr \
+    && rm -rf "$GOPATH" \
+    \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/* \
+    && apk del build-deps
 
     # Dependencies
 RUN apk add --no-cache \
