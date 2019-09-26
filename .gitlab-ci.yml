@@ -3,5 +3,19 @@ include:
     ref: "3.0"
     file: "/main.yml"
 
-build:image:
+stages:
+  - build:image:base
+  - build:image:extra
+
+
+build:image:base:
   extends: .build_image
+  stage: build:image:base
+
+build:image:extra:
+  extends: .build_image
+  stage: build:image:extra
+  variables:
+    BUILD_PATH: extra
+    BUILD_ARGS: --build-arg IMAGE=${CI_REGISTRY_IMAGE} --build-arg IMAGE_TAG=${CI_COMMIT_SHA}
+    IMAGE_TAG_SUFIX: -extra

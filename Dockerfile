@@ -10,10 +10,11 @@ ENV CONMON_REF=${CONMON_REF:-master} \
     CNI_PLUGINS_REF=${CNI_PLUGINS_REF:-master} \
     PODMAN_REF=${PODMAN_REF:-master}
 
+    # Build Dependencies
 RUN set -ex \
     && apk add --no-cache --virtual build-deps \
-      git \
       go \
+      git \
       make \
       linux-headers \
       bash \
@@ -24,68 +25,56 @@ RUN set -ex \
       ostree-dev \
       btrfs-progs-dev \
       build-base \
-      device-mapper \
-      ip6tables \
       libassuan-dev \
       libselinux-dev \
       lvm2-dev \
       pkgconf \
-      openssl \
-      protobuf-c-dev \
-      protobuf-dev \
     \
+    && export GOPATH="$(mktemp -d)" GOCACHE="$(mktemp -d)" \
     # Install runc
-    && export GOPATH="$(mktemp -d)" \
     && git clone https://github.com/opencontainers/runc $GOPATH/src/github.com/opencontainers/runc \
     && cd $GOPATH/src/github.com/opencontainers/runc \
     && git checkout -q "$RUNC_REF" \
     && EXTRA_LDFLAGS="-s -w" make BUILDTAGS="seccomp apparmor selinux ambient" \
     && cp runc /usr/bin/runc \
-    && rm -rf "$GOPATH" \
     \
     # Install conmon
-    && export GOPATH="$(mktemp -d)" \
     && git clone https://github.com/containers/conmon $GOPATH/src/github.com/containers/conmon \
     && cd $GOPATH/src/github.com/containers/conmon \
     && git checkout -q "$CONMON_REF" \
     && make \
     && mkdir -p /usr/libexec/podman \
     && install -D -m 755 bin/conmon /usr/libexec/podman/conmon \
-    && rm -rf "$GOPATH" \
     \
     # Install CNI plugins
-    && export GOPATH="$(mktemp -d)" GOCACHE="$(mktemp -d)" \
     && git clone https://github.com/containernetworking/plugins.git $GOPATH/src/github.com/containernetworking/plugins \
     && cd $GOPATH/src/github.com/containernetworking/plugins \
     && git checkout -q "$CNI_PLUGINS_REF" \
     && ./build_linux.sh \
     && mkdir -p /usr/libexec/cni \
     && cp bin/* /usr/libexec/cni/ \
-    && rm -rf "$GOPATH" \
     \
     # Install podman
-    && export GOPATH="$(mktemp -d)" \
     && git clone https://github.com/containers/libpod/ $GOPATH/src/github.com/containers/libpod \
     && cd $GOPATH/src/github.com/containers/libpod \
     && git checkout -q "$PODMAN_REF" \
     && make install.bin BUILDTAGS="selinux seccomp apparmor" PREFIX=/usr \
-    && rm -rf "$GOPATH" \
     \
     # Cleanup
-    && rm -rf /var/lib/apt/lists/* \
+    && cd \
+    && rm -rf "$GOPATH" "$GOCACHE" \
     && apk del build-deps
 
     # Dependencies
-RUN apk add --no-cache \
-      ip6tables \
-      gpgme \
-      libseccomp \
+RUN set -ex \
+    && apk add --no-cache \
       device-mapper \
-      git \
-      openssh-client \
-      curl \
-      jq \
+      gpgme \
+      ip6tables \
+      libseccomp
+
     # Configs
+RUN set -ex \
     && mkdir -p /etc/cni/net.d /etc/containers \
     && wget https://raw.githubusercontent.com/containers/libpod/master/cni/87-podman-bridge.conflist -O /etc/cni/net.d/87-podman-bridge.conflist \
     && wget https://raw.githubusercontent.com/projectatomic/registries/master/registries.conf -O /etc/containers/registries.conf \
