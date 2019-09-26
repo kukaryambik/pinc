@@ -18,4 +18,4 @@ build:image:extra:
   variables:
     BUILD_PATH: extra
     BUILD_ARGS: --build-arg IMAGE=${CI_REGISTRY_IMAGE}
-    IMAGE_TAG_SUFIX: -extra
+    IMAGE_TAG: extra
