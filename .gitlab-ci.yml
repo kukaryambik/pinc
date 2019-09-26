@@ -9,11 +9,11 @@ stages:
 
 
 build:image:base:
-  extends: .build_image
+  extends: .build_podman
   stage: build:image:base
 
 build:image:extra:
-  extends: .build_image
+  extends: .build_podman
   stage: build:image:extra
   variables:
     BUILD_PATH: extra
