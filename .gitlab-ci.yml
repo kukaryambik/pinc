@@ -17,5 +17,5 @@ build:image:extra:
   stage: build:image:extra
   variables:
     BUILD_PATH: extra
-    BUILD_ARGS: --build-arg IMAGE=${CI_REGISTRY_IMAGE} --build-arg IMAGE_TAG=$CI_COMMIT_SHA
+    BUILD_ARGS: --build-arg IMAGE=${CI_REGISTRY_IMAGE}
     IMAGE_TAG_SUFIX: -extra
