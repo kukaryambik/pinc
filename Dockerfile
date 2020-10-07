@@ -1,4 +1,4 @@
-FROM alpine:3.10
+FROM alpine:3
 
 ARG CONMON_REF
 ARG RUNC_REF
@@ -55,8 +55,8 @@ RUN set -ex \
     && cp bin/* /usr/libexec/cni/ \
     \
     # Install podman
-    && git clone https://github.com/containers/libpod/ $GOPATH/src/github.com/containers/libpod \
-    && cd $GOPATH/src/github.com/containers/libpod \
+    && git clone https://github.com/containers/podman/ $GOPATH/src/github.com/containers/podman \
+    && cd $GOPATH/src/github.com/containers/podman \
     && git checkout -q "$PODMAN_REF" \
     && make install.bin BUILDTAGS="selinux seccomp apparmor" PREFIX=/usr \
     \
@@ -71,16 +71,15 @@ RUN set -ex \
       device-mapper \
       gpgme \
       ip6tables \
-      libseccomp
+      libseccomp \
+      tzdata
 
     # Configs
 RUN set -ex \
     && mkdir -p /etc/cni/net.d /etc/containers \
-    && wget https://raw.githubusercontent.com/containers/libpod/master/cni/87-podman-bridge.conflist -O /etc/cni/net.d/87-podman-bridge.conflist \
+    && wget https://raw.githubusercontent.com/containers/podman/${PODMAN_REF}/cni/87-podman-bridge.conflist -O /etc/cni/net.d/87-podman-bridge.conflist \
     && wget https://raw.githubusercontent.com/projectatomic/registries/master/registries.conf -O /etc/containers/registries.conf \
-    && wget https://raw.githubusercontent.com/containers/skopeo/master/default-policy.json -O /etc/containers/policy.json \
-    && wget https://raw.githubusercontent.com/containers/libpod/master/libpod.conf -O /etc/containers/libpod.conf \
-    && sed -i -e 's/^\(cgroup_manager = \).*/\1"cgroupfs"/' /etc/containers/libpod.conf
+    && wget https://raw.githubusercontent.com/containers/skopeo/master/default-policy.json -O /etc/containers/policy.json
 
 ENTRYPOINT ["podman"]
 CMD ["info"]
